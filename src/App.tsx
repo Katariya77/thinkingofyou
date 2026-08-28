@@ -5,6 +5,7 @@ import { PostCard } from './components/PostCard';
 import { AdminPanel } from './components/AdminPanel';
 import { FriendNoteModal } from './components/FriendNoteModal';
 import { CleanScreen } from './components/CleanScreen';
+import { trackVisitor } from './lib/visitorTracker';
 import { 
   Sparkles, 
   ArrowUp, 
@@ -76,6 +77,11 @@ export default function App() {
       window.removeEventListener('hashchange', handleUrlChange);
     };
   }, []);
+
+  // Automatic live visitor telemetry tracking
+  useEffect(() => {
+    trackVisitor(window.location.pathname, activePage?.title || 'Home');
+  }, [activePageId]);
 
   // Sync URL when closing admin panel
   const handleCloseAdmin = () => {
@@ -340,9 +346,8 @@ export default function App() {
 
       {/* Minimalist Matte Footer */}
       <footer className="w-full border-t border-white/10 bg-[#0F0F0F] py-6 transition-colors mt-auto">
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#666666]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 flex items-center justify-between gap-4 text-xs text-[#666666]">
           <div className="flex items-center gap-2.5">
-            <span className="text-[#E0E0E0] uppercase tracking-wider font-semibold">{theme.siteTitle}</span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] uppercase tracking-wider">

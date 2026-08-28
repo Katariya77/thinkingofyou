@@ -87,20 +87,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
-          {/* Brand Title */}
-          <div className="flex items-center gap-3 shrink-0">
-            <button
-              onClick={() => onSelectPage(visiblePages[0]?.id || 'page-home')}
-              className="flex items-center gap-3 text-left group focus:outline-none"
-            >
-              <span className="font-semibold tracking-widest text-sm uppercase text-white block group-hover:text-zinc-300 transition-colors">
-                {theme.siteTitle || 'madxgaming'}
-              </span>
-            </button>
-          </div>
-
           {/* Desktop Navigation Pages */}
-          <nav className="hidden md:flex items-center gap-8 text-[11px] uppercase tracking-widest font-medium overflow-x-auto no-scrollbar py-1">
+          <nav className="flex items-center gap-6 sm:gap-8 text-[11px] uppercase tracking-widest font-medium overflow-x-auto no-scrollbar py-1">
             {visiblePages.map((page) => {
               const isActive = activePageId === page.id;
               return (

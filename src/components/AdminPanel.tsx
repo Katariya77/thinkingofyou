@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, 
   Plus, 
@@ -30,10 +30,24 @@ import {
   ChevronUp,
   ChevronDown,
   Music,
-  Maximize2
+  Maximize2,
+  Activity,
+  Globe,
+  User,
+  Key,
+  AlertCircle,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { Page, Post, ThemeConfig, FriendNote, PostType, ThemeMode, DividerStyle, TypographyFamily } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { LogsManager } from './LogsManager';
+import { 
+  verifyAdminAuth, 
+  updateAdminAuthInFirestore, 
+  ensureFirestoreAdminAuth,
+  getCurrentCachedUsername 
+} from '../lib/adminAuth';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -72,13 +86,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onResetAllData,
   firestoreConnected,
 }) => {
-  // Authentication state
+  // Authentication state (Synced with Firebase)
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [enteredPasscode, setEnteredPasscode] = useState('');
-  const [authError, setAuthError] = useState(false);
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
+
+  // Settings tab: Credentials management
+  const [settingsUsername, setSettingsUsername] = useState('');
+  const [settingsPassword, setSettingsPassword] = useState('');
+  const [settingsAuthSaving, setSettingsAuthSaving] = useState(false);
+  const [settingsAuthFeedback, setSettingsAuthFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // In-app deletion confirmation modals (to prevent iframe popup blocks)
+  const [postToDelete, setPostToDelete] = useState<Post | null>(null);
+  const [pageToDelete, setPageToDelete] = useState<Page | null>(null);
+  const [noteToDelete, setNoteToDelete] = useState<FriendNote | null>(null);
+  const [showResetDataModal, setShowResetDataModal] = useState(false);
 
   // Navigation tab
-  const [activeTab, setActiveTab] = useState<'create' | 'posts' | 'pages' | 'theme' | 'notes' | 'settings'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'posts' | 'pages' | 'theme' | 'notes' | 'logs' | 'settings'>('create');
+
+  // Load / seed admin credentials from Firebase on modal opening
+  useEffect(() => {
+    if (isOpen) {
+      ensureFirestoreAdminAuth().then((creds) => {
+        setSettingsUsername(creds.username);
+        setSettingsPassword(creds.password);
+      });
+    }
+  }, [isOpen]);
 
   // --- POST FORM STATE ---
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
@@ -125,14 +163,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   if (!isOpen) return null;
 
-  // Handle Passcode submit
-  const handlePasscodeSubmit = (e: React.FormEvent) => {
+  // Handle Firebase username & password authentication submit
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (enteredPasscode === theme.passcode || enteredPasscode === '1234') {
-      setIsAuthenticated(true);
-      setAuthError(false);
+    setAuthErrorMessage(null);
+    setIsAuthLoading(true);
+
+    try {
+      const res = await verifyAdminAuth(adminUsername, adminPassword);
+      if (res.success) {
+        setIsAuthenticated(true);
+        setAuthErrorMessage(null);
+      } else {
+        setAuthErrorMessage(res.error || 'Invalid username or password.');
+      }
+    } catch (err) {
+      setAuthErrorMessage('Authentication error. Please try again.');
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  // Handle updating admin credentials in Firebase
+  const handleSaveAdminCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsAuthSaving(true);
+    setSettingsAuthFeedback(null);
+
+    const res = await updateAdminAuthInFirestore(settingsUsername, settingsPassword);
+    setSettingsAuthSaving(false);
+
+    if (res.success) {
+      setSettingsAuthFeedback({
+        type: 'success',
+        message: 'Admin credentials saved successfully in Firebase!',
+      });
+      setTimeout(() => setSettingsAuthFeedback(null), 4000);
     } else {
-      setAuthError(true);
+      setSettingsAuthFeedback({
+        type: 'error',
+        message: res.error || 'Failed to update credentials in Firebase.',
+      });
     }
   };
 
@@ -358,37 +429,78 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
 
-        {/* PASSCODE LOCK GATE */}
+        {/* FIREBASE ADMIN LOGIN GATE */}
         {!isAuthenticated ? (
-          <div className="p-8 sm:p-12 text-center max-w-md mx-auto my-auto space-y-4">
-            <div className="w-12 h-12 rounded-sm bg-[#161616] border border-white/10 flex items-center justify-center text-white mx-auto">
+          <div className="p-8 sm:p-12 text-center max-w-md mx-auto my-auto space-y-5">
+            <div className="w-12 h-12 rounded-sm bg-[#161616] border border-white/10 flex items-center justify-center text-white mx-auto shadow-inner">
               <Lock className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-medium uppercase tracking-wider text-white">Admin Authentication</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Admin Authentication</h3>
               <p className="text-xs text-[#888888] mt-1">
-                Enter access passcode. Default is <span className="font-mono text-white bg-white/10 px-1.5 py-0.5 rounded-sm">1234</span>.
+                Enter your admin credentials to access the studio control panel.
               </p>
             </div>
 
-            <form onSubmit={handlePasscodeSubmit} className="space-y-3 pt-2">
-              <input
-                type="password"
-                value={enteredPasscode}
-                onChange={(e) => setEnteredPasscode(e.target.value)}
-                placeholder="Enter passcode (e.g. 1234)"
-                autoFocus
-                className="w-full px-4 py-2.5 rounded-sm bg-[#161616] border border-white/10 text-center text-xs tracking-widest text-white placeholder-[#666666] focus:outline-none focus:border-white/30"
-              />
-              {authError && (
-                <p className="text-xs text-rose-400 font-mono">Incorrect passcode. Default is 1234.</p>
+            <form onSubmit={handleAuthSubmit} className="space-y-3 pt-2 text-left">
+              <div>
+                <label className="block text-[10px] uppercase font-mono text-zinc-400 mb-1 tracking-wider">
+                  Admin Username
+                </label>
+                <div className="relative">
+                  <User className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="text"
+                    value={adminUsername}
+                    onChange={(e) => setAdminUsername(e.target.value)}
+                    placeholder="Enter username"
+                    autoFocus
+                    required
+                    className="w-full pl-9 pr-4 py-2.5 rounded-sm bg-[#161616] border border-white/10 text-xs text-white placeholder-[#555555] focus:outline-none focus:border-white/40 font-mono tracking-wide"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase font-mono text-zinc-400 mb-1 tracking-wider">
+                  Admin Password
+                </label>
+                <div className="relative">
+                  <Key className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="Enter password"
+                    required
+                    className="w-full pl-9 pr-4 py-2.5 rounded-sm bg-[#161616] border border-white/10 text-xs text-white placeholder-[#555555] focus:outline-none focus:border-white/40 tracking-wider"
+                  />
+                </div>
+              </div>
+
+              {authErrorMessage && (
+                <div className="p-2.5 rounded-sm bg-rose-950/40 border border-rose-800/60 text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{authErrorMessage}</span>
+                </div>
               )}
+
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-sm bg-white hover:bg-zinc-200 text-black font-semibold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow"
+                disabled={isAuthLoading}
+                className="w-full py-2.5 rounded-sm bg-white hover:bg-zinc-200 text-black font-semibold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow cursor-pointer disabled:opacity-50 mt-4"
               >
-                <Unlock className="w-4 h-4" />
-                <span>Unlock Studio</span>
+                {isAuthLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Verifying...</span>
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="w-4 h-4" />
+                    <span>Sign In to Studio</span>
+                  </>
+                )}
               </button>
             </form>
           </div>
@@ -480,6 +592,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 ) : (
                   activeTab === 'notes' && <div className="w-1 h-3.5 bg-white shrink-0" />
                 )}
+              </button>
+
+              <button
+                onClick={() => setActiveTab('logs')}
+                className={`flex items-center justify-between px-3 py-2 rounded-sm text-xs transition-colors shrink-0 text-left uppercase tracking-wider ${
+                  activeTab === 'logs'
+                    ? 'bg-white/5 text-white border border-white/10 font-medium'
+                    : 'text-[#666666] hover:text-[#AAAAAA] hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Logs</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  {activeTab === 'logs' && <div className="w-1 h-3.5 bg-white shrink-0" />}
+                </div>
               </button>
 
               <button
@@ -696,6 +826,36 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         </div>
                       </div>
 
+                      {/* Voice Note or Audio Preview and Clear */}
+                      {(recordedAudioUrl || mediaUrls.length > 0) && (
+                        <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-mono text-zinc-300 flex items-center gap-1.5">
+                              <Music className="w-3.5 h-3.5 text-rose-400" />
+                              <span>Attached Audio Stream</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRecordedAudioUrl(null);
+                                setMediaUrls([]);
+                                setAudioTrackTitle('');
+                                setAudioArtist('');
+                              }}
+                              className="text-[11px] text-rose-400 hover:text-rose-300 flex items-center gap-1 px-2 py-1 rounded bg-rose-950/40 hover:bg-rose-950/80 border border-rose-900/50 transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Remove Audio</span>
+                            </button>
+                          </div>
+                          <audio
+                            src={recordedAudioUrl || mediaUrls[0]}
+                            controls
+                            className="w-full h-8 brightness-90"
+                          />
+                        </div>
+                      )}
+
                       {/* Metadata titles */}
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <input
@@ -829,22 +989,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </label>
                   </div>
 
-                  {/* Submit Button */}
-                  <div className="flex items-center justify-end gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={resetPostForm}
-                      className="px-4 py-2 rounded-lg text-xs text-zinc-400 hover:text-white"
-                    >
-                      Reset Form
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2.5 rounded-lg bg-zinc-200 hover:bg-white text-zinc-900 font-semibold text-xs flex items-center gap-2 shadow-lg transition-all"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>{editingPostId ? 'Update Post' : 'Publish to Feed'}</span>
-                    </button>
+                  {/* Submit and Delete Form Actions */}
+                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-zinc-800/80">
+                    <div>
+                      {editingPostId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const post = posts.find((p) => p.id === editingPostId);
+                            if (post) setPostToDelete(post);
+                          }}
+                          className="px-3.5 py-2 rounded-lg bg-rose-950/50 hover:bg-rose-900/80 text-rose-300 hover:text-rose-100 border border-rose-800/60 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete This Post</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={resetPostForm}
+                        className="px-4 py-2 rounded-lg text-xs text-zinc-400 hover:text-white"
+                      >
+                        Reset Form
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2.5 rounded-lg bg-zinc-200 hover:bg-white text-zinc-900 font-semibold text-xs flex items-center gap-2 shadow-lg transition-all"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>{editingPostId ? 'Update Post' : 'Publish to Feed'}</span>
+                      </button>
+                    </div>
                   </div>
                 </form>
               )}
@@ -916,13 +1094,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => {
-                                  if (confirm('Delete this post?')) {
-                                    onRemovePost(p.id);
-                                  }
-                                }}
+                                onClick={() => setPostToDelete(p)}
                                 className="p-2 rounded-lg bg-zinc-800 hover:bg-rose-900/60 text-zinc-400 hover:text-rose-300 transition-colors"
-                                title="Delete post"
+                                title="Delete post permanently"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1081,12 +1255,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           {!p.isHome && (
                             <button
                               type="button"
-                              onClick={() => {
-                                if (confirm(`Delete page "${p.title}"?`)) {
-                                  onRemovePage(p.id);
-                                }
-                              }}
-                              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-zinc-800"
+                              onClick={() => setPageToDelete(p)}
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors"
                               title="Delete page"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1567,8 +1737,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 </button>
                               )}
                               <button
-                                onClick={() => onDeleteNote(note.id)}
-                                className="text-zinc-400 hover:text-rose-400 p-1"
+                                onClick={() => setNoteToDelete(note)}
+                                className="text-zinc-400 hover:text-rose-400 p-1 transition-colors"
+                                title="Delete note"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1588,6 +1759,97 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               {activeTab === 'settings' && (
                 <div className="space-y-6 max-w-2xl">
                   <h3 className="text-sm font-semibold text-white">Portal Settings & Security</h3>
+
+                  {/* FIREBASE ADMIN CREDENTIALS CARD */}
+                  <form onSubmit={handleSaveAdminCredentials} className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800 space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+                      <div>
+                        <h4 className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1.5">
+                          <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                          <span>Admin Login Credentials (Firebase)</span>
+                        </h4>
+                        <p className="text-[11px] text-zinc-400">
+                          Credentials are saved securely in Firestore cloud database, not in client code.
+                        </p>
+                      </div>
+                      <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/80 text-emerald-300 font-mono">
+                        Cloud Synced
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] uppercase text-zinc-400 font-mono mb-1">
+                          Admin Username
+                        </label>
+                        <div className="relative">
+                          <User className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                          <input
+                            type="text"
+                            value={settingsUsername}
+                            onChange={(e) => setSettingsUsername(e.target.value)}
+                            placeholder="Katariya77"
+                            required
+                            className="w-full pl-9 pr-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white font-mono focus:outline-none focus:border-zinc-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] uppercase text-zinc-400 font-mono mb-1">
+                          New Admin Password
+                        </label>
+                        <div className="relative">
+                          <Key className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                          <input
+                            type="password"
+                            value={settingsPassword}
+                            onChange={(e) => setSettingsPassword(e.target.value)}
+                            placeholder="kr!shn@77"
+                            required
+                            className="w-full pl-9 pr-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-zinc-500 tracking-wider"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {settingsAuthFeedback && (
+                      <div
+                        className={`p-2.5 rounded-lg text-xs flex items-center gap-2 ${
+                          settingsAuthFeedback.type === 'success'
+                            ? 'bg-emerald-950/40 border border-emerald-800 text-emerald-300'
+                            : 'bg-rose-950/40 border border-rose-800 text-rose-300'
+                        }`}
+                      >
+                        {settingsAuthFeedback.type === 'success' ? (
+                          <Check className="w-3.5 h-3.5 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        )}
+                        <span>{settingsAuthFeedback.message}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="submit"
+                        disabled={settingsAuthSaving}
+                        className="px-4 py-2 rounded-lg bg-zinc-200 hover:bg-white text-zinc-900 text-xs font-semibold flex items-center gap-1.5 shadow transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {settingsAuthSaving ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Saving in Firebase...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3.5 h-3.5" />
+                            <span>Save Credentials in Firebase</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
 
                   <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-4">
                     <div>
@@ -1616,22 +1878,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         }
                         className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none"
                       />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] uppercase text-zinc-400 font-mono mb-1">
-                        Admin Studio Passcode
-                      </label>
-                      <input
-                        type="text"
-                        value={tempTheme.passcode || '1234'}
-                        onChange={(e) =>
-                          setTempTheme({ ...tempTheme, passcode: e.target.value })
-                        }
-                        placeholder="1234"
-                        className="w-48 px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white font-mono focus:outline-none"
-                      />
-                      <p className="text-[11px] text-zinc-400 mt-1">Passcode used to unlock this studio modal.</p>
                     </div>
 
                     {/* COMING SOON / CLEAN SCREEN CONFIGURATION */}
@@ -1815,12 +2061,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       Reset database to default sample posts and pages or wipe changes.
                     </p>
                     <button
-                      onClick={() => {
-                        if (confirm('Reset entire portal to default sample posts and clean matte theme?')) {
-                          onResetAllData();
-                          onClose();
-                        }
-                      }}
+                      onClick={() => setShowResetDataModal(true)}
                       className="px-3.5 py-2 rounded-lg bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs font-medium border border-rose-800/80 transition-colors"
                     >
                       Reset to Default Sample Data
@@ -1828,10 +2069,217 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* TAB 6: TELEMETRY & VISITOR LOGS */}
+              {activeTab === 'logs' && <LogsManager />}
             </main>
           </div>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* IN-APP CONFIRMATION MODALS (Prevents iframe popup block or overlapping) */}
+      {/* ========================================================================= */}
+
+      {/* 1. POST DELETION MODAL */}
+      <AnimatePresence>
+        {postToDelete && (
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-[#141416] border border-white/15 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-950/80 border border-rose-800 flex items-center justify-center text-rose-400 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-white">Delete Post Permanently?</h3>
+                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                    This will permanently remove this post from your feed and Firestore database. This action cannot be undone.
+                  </p>
+                  <div className="mt-3 p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-zinc-300">
+                    <span className="font-mono text-[10px] text-zinc-500 uppercase block mb-0.5">
+                      Type: {postToDelete.type} • Title: {postToDelete.title || 'Untitled'}
+                    </span>
+                    <span className="line-clamp-2 italic text-zinc-400">
+                      "{postToDelete.content || postToDelete.title || 'No text snippet'}"
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setPostToDelete(null)}
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onRemovePost(postToDelete.id);
+                    if (editingPostId === postToDelete.id) {
+                      resetPostForm();
+                    }
+                    setPostToDelete(null);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Post</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 2. PAGE DELETION MODAL */}
+      <AnimatePresence>
+        {pageToDelete && (
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-[#141416] border border-white/15 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-950/80 border border-rose-800 flex items-center justify-center text-rose-400 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-white">Delete Navigation Page?</h3>
+                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                    Are you sure you want to delete <span className="text-white font-semibold">"{pageToDelete.title}"</span>?
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setPageToDelete(null)}
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onRemovePage(pageToDelete.id);
+                    setPageToDelete(null);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Page</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 3. NOTE DELETION MODAL */}
+      <AnimatePresence>
+        {noteToDelete && (
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-[#141416] border border-white/15 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-950/80 border border-rose-800 flex items-center justify-center text-rose-400 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-white">Delete Friend's Note?</h3>
+                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                    Delete note from <span className="text-white font-semibold">{noteToDelete.sender}</span>?
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setNoteToDelete(null)}
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteNote(noteToDelete.id);
+                    setNoteToDelete(null);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Note</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 4. RESET ALL DATA MODAL */}
+      <AnimatePresence>
+        {showResetDataModal && (
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-[#141416] border border-white/15 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-950/80 border border-rose-800 flex items-center justify-center text-rose-400 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-white">Reset All Portal Data?</h3>
+                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                    This will reset your portal to the default clean matte sample state and wipe custom posts.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setShowResetDataModal(false)}
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onResetAllData();
+                    setShowResetDataModal(false);
+                    onClose();
+                  }}
+                  className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Confirm Reset</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

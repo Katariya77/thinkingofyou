@@ -1,6 +1,6 @@
 {
   "name": "Matte Minimal - Media & Pages",
   "description": "A minimalist matte black personal portal with customizable pages, custom multi-hex/gradient theme engine, and rich text, photo, audio, and video posts with timestamps.",
-  "requestFramePermissions": ["microphone"],
+  "requestFramePermissions": ["microphone", "geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

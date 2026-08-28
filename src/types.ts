@@ -97,3 +97,48 @@ export interface FriendNote {
   createdAt: number;
   read: boolean;
 }
+
+export interface VisitorLog {
+  id: string;
+  deviceId: string;
+  browserId: string;
+  ip: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  countryCode?: string;
+  isp?: string;
+  exactLocation?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    mapsUrl: string;
+    formattedAddress?: string;
+  } | null;
+  locationPermission: 'granted' | 'denied' | 'unavailable' | 'skipped';
+  userAgent: string;
+  browserName: string;
+  osName: string;
+  deviceType: 'mobile' | 'tablet' | 'desktop';
+  screenResolution: string;
+  path: string;
+  pageTitle?: string;
+  referrer: string;
+  timestamp: number; // Unix epoch ms
+  createdAt: number;
+}
+
+export interface IgnoredRule {
+  id: string;
+  type: 'deviceId' | 'browserId' | 'ip';
+  value: string;
+  label?: string;
+  createdAt: number;
+}
+
+export interface IgnoredVisitorsConfig {
+  ignoredDeviceIds: string[];
+  ignoredBrowserIds: string[];
+  ignoredIps: string[];
+  rules: IgnoredRule[];
+}

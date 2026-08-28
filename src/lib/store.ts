@@ -4,6 +4,7 @@ import {
   doc, 
   onSnapshot, 
   setDoc, 
+  getDoc,
   deleteDoc, 
   query, 
   orderBy, 
@@ -18,21 +19,26 @@ const STORAGE_KEY_POSTS = 'mm_matte_posts';
 const STORAGE_KEY_PAGES = 'mm_matte_pages';
 const STORAGE_KEY_THEME = 'mm_matte_theme';
 const STORAGE_KEY_NOTES = 'mm_matte_notes';
+const STORAGE_KEY_INITIALIZED = 'mm_matte_initialized';
 
 export function useAppStore() {
   const [posts, setPosts] = useState<Post[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_POSTS);
-      return saved ? JSON.parse(saved) : DEFAULT_POSTS;
+      const isInit = localStorage.getItem(STORAGE_KEY_INITIALIZED);
+      if (saved !== null) {
+        return JSON.parse(saved);
+      }
+      return isInit ? [] : DEFAULT_POSTS;
     } catch {
-      return DEFAULT_POSTS;
+      return [];
     }
   });
 
   const [pages, setPages] = useState<Page[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_PAGES);
-      return saved ? JSON.parse(saved) : DEFAULT_PAGES;
+      return saved !== null ? JSON.parse(saved) : DEFAULT_PAGES;
     } catch {
       return DEFAULT_PAGES;
     }
@@ -61,34 +67,62 @@ export function useAppStore() {
 
   // Sync with Firestore: Posts
   useEffect(() => {
+    let isMounted = true;
     try {
       const postsCol = collection(db, 'posts');
       const q = query(postsCol, orderBy('timestamp', 'desc'));
       
       const unsubscribe = onSnapshot(
         q,
-        (snapshot) => {
+        async (snapshot) => {
+          if (!isMounted) return;
+          const remotePosts: Post[] = [];
+          snapshot.forEach((d) => {
+            remotePosts.push({ id: d.id, ...(d.data() as Omit<Post, 'id'>) });
+          });
+
           if (!snapshot.empty) {
-            const remotePosts: Post[] = [];
-            snapshot.forEach((d) => {
-              remotePosts.push({ id: d.id, ...(d.data() as Omit<Post, 'id'>) });
-            });
             setPosts(remotePosts);
             localStorage.setItem(STORAGE_KEY_POSTS, JSON.stringify(remotePosts));
+            localStorage.setItem(STORAGE_KEY_INITIALIZED, 'true');
             setFirestoreConnected(true);
+            setIsSyncing(false);
           } else {
-            // First time setup - seed default posts to firestore
-            seedInitialData();
+            // Check if portal has already been initialized (or posts intentionally cleared)
+            try {
+              const stateDoc = await getDoc(doc(db, 'settings', 'portal_state'));
+              const isAlreadyInit = (stateDoc.exists() && stateDoc.data()?.initialized) || localStorage.getItem(STORAGE_KEY_INITIALIZED) === 'true';
+
+              if (isAlreadyInit) {
+                // User intentionally deleted all posts or has zero posts -> keep empty!
+                setPosts([]);
+                localStorage.setItem(STORAGE_KEY_POSTS, JSON.stringify([]));
+                setFirestoreConnected(true);
+              } else {
+                // First-time pristine setup only
+                await seedInitialData();
+              }
+            } catch (err) {
+              console.warn('Check portal_state notice:', err);
+              // If error or already marked, don't respawn
+              if (localStorage.getItem(STORAGE_KEY_INITIALIZED) === 'true') {
+                setPosts([]);
+                localStorage.setItem(STORAGE_KEY_POSTS, JSON.stringify([]));
+              }
+            }
+            setIsSyncing(false);
           }
-          setIsSyncing(false);
         },
         (error) => {
           console.warn('Firestore real-time subscription error, using local storage fallback:', error);
-          setIsSyncing(false);
+          if (isMounted) setIsSyncing(false);
         }
       );
 
-      return () => unsubscribe();
+      return () => {
+        isMounted = false;
+        unsubscribe();
+      };
     } catch (e) {
       console.warn('Firestore initialization fallback:', e);
       setIsSyncing(false);
@@ -188,7 +222,11 @@ export function useAppStore() {
       const themeRef = doc(db, 'settings', 'theme');
       batch.set(themeRef, DEFAULT_THEME);
 
+      const stateRef = doc(db, 'settings', 'portal_state');
+      batch.set(stateRef, { initialized: true, seededAt: Date.now() });
+
       await batch.commit();
+      localStorage.setItem(STORAGE_KEY_INITIALIZED, 'true');
       setFirestoreConnected(true);
     } catch (err) {
       console.warn('Seeding firestore error, continuing with local store:', err);
@@ -210,6 +248,7 @@ export function useAppStore() {
         updated = [post, ...prev];
       }
       localStorage.setItem(STORAGE_KEY_POSTS, JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEY_INITIALIZED, 'true');
       return updated;
     });
 
@@ -217,20 +256,25 @@ export function useAppStore() {
     try {
       const postRef = doc(db, 'posts', post.id);
       await setDoc(postRef, post, { merge: true });
+      await setDoc(doc(db, 'settings', 'portal_state'), { initialized: true }, { merge: true });
     } catch (e) {
       console.warn('Could not persist post to firestore:', e);
     }
   };
 
   const removePost = async (postId: string) => {
+    // 1. Update state & local storage immediately
     setPosts((prev) => {
       const updated = prev.filter((p) => p.id !== postId);
       localStorage.setItem(STORAGE_KEY_POSTS, JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEY_INITIALIZED, 'true');
       return updated;
     });
 
+    // 2. Delete from Firestore permanently
     try {
       await deleteDoc(doc(db, 'posts', postId));
+      await setDoc(doc(db, 'settings', 'portal_state'), { initialized: true }, { merge: true });
     } catch (e) {
       console.warn('Could not delete post from firestore:', e);
     }
