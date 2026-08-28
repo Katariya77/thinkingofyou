@@ -82,6 +82,12 @@ export interface ThemeConfig {
   enableReactions: boolean;
   enableFriendNotes: boolean;
   friendName: string;
+  comingSoon?: {
+    enabled: boolean;
+    bgImageUrl: string;
+    songUrl: string;
+    songTitle?: string;
+  };
 }
 
 export interface FriendNote {

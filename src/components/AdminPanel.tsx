@@ -28,7 +28,9 @@ import {
   Sparkles,
   Link as LinkIcon,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Music,
+  Maximize2
 } from 'lucide-react';
 import { Page, Post, ThemeConfig, FriendNote, PostType, ThemeMode, DividerStyle, TypographyFamily } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -329,36 +331,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.98 }}
-        className="w-full max-w-4xl bg-[#0A0A0A] border border-white/10 rounded-sm shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
-      >
-        {/* Modal Top Header */}
-        <div className="px-5 py-4 border-b border-white/10 bg-[#0D0D0D] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-sm bg-white text-black font-bold flex items-center justify-center text-xs">
+    <div className="fixed inset-0 z-50 bg-[#0A0A0A] w-screen h-screen min-h-[100dvh] flex flex-col overflow-hidden">
+      <div className="w-full h-full bg-[#0A0A0A] flex flex-col min-h-0">
+        {/* Full Screen Top Header */}
+        <div className="px-6 py-4 border-b border-white/10 bg-[#0D0D0D] flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3.5">
+            <div className="w-8 h-8 rounded-sm bg-white text-black font-bold flex items-center justify-center text-xs tracking-wider">
               M
             </div>
             <div>
               <h2 className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-white flex items-center gap-2">
-                <span>Studio & Theme Engine</span>
+                <span>Admin Studio & Engine</span>
                 <span className="text-[9px] px-2 py-0.5 rounded-sm bg-white/5 text-[#AAAAAA] border border-white/10 font-mono">
-                  {firestoreConnected ? 'Cloud Active' : 'Local Active'}
+                  {firestoreConnected ? 'Cloud Synced' : 'Local Storage'}
                 </span>
               </h2>
-              <p className="text-[11px] text-[#666666]">Post texts, audio, video, photos, manage pages & customize themes.</p>
+              <p className="text-[11px] text-[#666666]">System administration, content matrix, pages, appearance, and clean screen configuration.</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="p-1.5 rounded-sm text-[#888888] hover:text-white hover:bg-white/5 transition-colors"
+              className="px-3.5 py-1.5 rounded-sm border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold uppercase tracking-wider text-[#E0E0E0] hover:text-white transition-all flex items-center gap-2"
             >
-              <X className="w-5 h-5" />
+              <span>Exit Studio</span>
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -1639,6 +1637,172 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <p className="text-[11px] text-zinc-400 mt-1">Passcode used to unlock this studio modal.</p>
                     </div>
 
+                    {/* COMING SOON / CLEAN SCREEN CONFIGURATION */}
+                    <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-4">
+                      <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+                        <div>
+                          <h4 className="text-xs font-semibold text-white uppercase tracking-wider">
+                            Coming Soon / Clean Screen
+                          </h4>
+                          <p className="text-[11px] text-zinc-400">
+                            When enabled, turns the public site into a completely clean screen showing only a background image and playing ambient background audio on visit (without showing text or labels).
+                          </p>
+                        </div>
+
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={tempTheme.comingSoon?.enabled || false}
+                            onChange={(e) =>
+                              setTempTheme({
+                                ...tempTheme,
+                                comingSoon: {
+                                  enabled: e.target.checked,
+                                  bgImageUrl: tempTheme.comingSoon?.bgImageUrl || '',
+                                  songUrl: tempTheme.comingSoon?.songUrl || '',
+                                  songTitle: tempTheme.comingSoon?.songTitle || '',
+                                },
+                              })
+                            }
+                            className="sr-only peer"
+                          />
+                          <div className="w-10 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                      </div>
+
+                      {tempTheme.comingSoon?.enabled && (
+                        <div className="space-y-3 pt-1">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-[10px] uppercase text-zinc-400 font-mono">
+                                Background Image URL
+                              </label>
+                              <label className="cursor-pointer text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 font-mono">
+                                <Upload className="w-3 h-3" />
+                                <span>Upload image</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => {
+                                        setTempTheme({
+                                          ...tempTheme,
+                                          comingSoon: {
+                                            ...(tempTheme.comingSoon || { enabled: true, songUrl: '' }),
+                                            bgImageUrl: reader.result as string,
+                                          },
+                                        });
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            <input
+                              type="url"
+                              value={tempTheme.comingSoon?.bgImageUrl || ''}
+                              onChange={(e) =>
+                                setTempTheme({
+                                  ...tempTheme,
+                                  comingSoon: {
+                                    ...(tempTheme.comingSoon || { enabled: true, songUrl: '' }),
+                                    bgImageUrl: e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="https://images.unsplash.com/... or paste image URL"
+                              className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none"
+                            />
+                            {tempTheme.comingSoon?.bgImageUrl && (
+                              <div className="mt-2 relative w-full h-32 rounded-lg overflow-hidden border border-zinc-800 bg-black">
+                                <img
+                                  src={tempTheme.comingSoon.bgImageUrl}
+                                  alt="Preview"
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-[10px] uppercase text-zinc-400 font-mono">
+                                Background Song URL (.mp3 / direct stream)
+                              </label>
+                              <label className="cursor-pointer text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 font-mono">
+                                <Upload className="w-3 h-3" />
+                                <span>Upload audio</span>
+                                <input
+                                  type="file"
+                                  accept="audio/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => {
+                                        setTempTheme({
+                                          ...tempTheme,
+                                          comingSoon: {
+                                            ...(tempTheme.comingSoon || { enabled: true, bgImageUrl: '' }),
+                                            songUrl: reader.result as string,
+                                            songTitle: file.name,
+                                          },
+                                        });
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+                            <input
+                              type="url"
+                              value={tempTheme.comingSoon?.songUrl || ''}
+                              onChange={(e) =>
+                                setTempTheme({
+                                  ...tempTheme,
+                                  comingSoon: {
+                                    ...(tempTheme.comingSoon || { enabled: true, bgImageUrl: '' }),
+                                    songUrl: e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="https://cdn.freesound.org/... or direct .mp3 URL"
+                              className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] uppercase text-zinc-400 font-mono mb-1">
+                              Song Title (Optional discreet note)
+                            </label>
+                            <input
+                              type="text"
+                              value={tempTheme.comingSoon?.songTitle || ''}
+                              onChange={(e) =>
+                                setTempTheme({
+                                  ...tempTheme,
+                                  comingSoon: {
+                                    ...(tempTheme.comingSoon || { enabled: true, bgImageUrl: '', songUrl: '' }),
+                                    songTitle: e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="e.g. Ambient Rain Song"
+                              className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <button
                       onClick={handleSaveTheme}
                       className="px-4 py-2 rounded-lg bg-zinc-200 hover:bg-white text-zinc-900 text-xs font-semibold"
@@ -1670,7 +1834,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </main>
           </div>
         )}
-      </motion.div>
+      </div>
     </div>
   );
 };

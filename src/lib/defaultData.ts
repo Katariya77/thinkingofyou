@@ -23,6 +23,12 @@ export const DEFAULT_THEME: ThemeConfig = {
   enableReactions: true,
   enableFriendNotes: true,
   friendName: 'My Friend',
+  comingSoon: {
+    enabled: false,
+    bgImageUrl: '',
+    songUrl: '',
+    songTitle: '',
+  },
 };
 
 export const DEFAULT_PAGES: Page[] = [

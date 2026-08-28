@@ -4,6 +4,7 @@ import { Navbar } from './components/Navbar';
 import { PostCard } from './components/PostCard';
 import { AdminPanel } from './components/AdminPanel';
 import { FriendNoteModal } from './components/FriendNoteModal';
+import { CleanScreen } from './components/CleanScreen';
 import { 
   Sparkles, 
   ArrowUp, 
@@ -180,23 +181,33 @@ export default function App() {
     }
   };
 
+  const isComingSoonActive = theme.comingSoon?.enabled;
+
   return (
-    <div
-      id="matte-portal-root"
-      style={getThemeBackgroundStyle()}
-      className={`min-h-screen text-zinc-200 transition-colors duration-500 relative flex flex-col ${getFontFamilyClass()}`}
-    >
-      {/* Background Image Overlay if Image Theme Mode is active */}
-      {theme.mode === 'image' && theme.bgImageUrl && (
-        <div
-          className="fixed inset-0 pointer-events-none -z-10 bg-cover bg-center bg-no-repeat transition-all duration-500"
-          style={{
-            backgroundImage: `url(${theme.bgImageUrl})`,
-            opacity: theme.bgImageOpacity ?? 0.35,
-            filter: `blur(${theme.bgImageBlur ?? 0}px)`,
-          }}
+    <>
+      {isComingSoonActive ? (
+        <CleanScreen
+          bgImageUrl={theme.comingSoon?.bgImageUrl}
+          songUrl={theme.comingSoon?.songUrl}
+          songTitle={theme.comingSoon?.songTitle}
         />
-      )}
+      ) : (
+        <div
+          id="matte-portal-root"
+          style={getThemeBackgroundStyle()}
+          className={`min-h-screen text-zinc-200 transition-colors duration-500 relative flex flex-col ${getFontFamilyClass()}`}
+        >
+          {/* Background Image Overlay if Image Theme Mode is active */}
+          {theme.mode === 'image' && theme.bgImageUrl && (
+            <div
+              className="fixed inset-0 pointer-events-none -z-10 bg-cover bg-center bg-no-repeat transition-all duration-500"
+              style={{
+                backgroundImage: `url(${theme.bgImageUrl})`,
+                opacity: theme.bgImageOpacity ?? 0.35,
+                filter: `blur(${theme.bgImageBlur ?? 0}px)`,
+              }}
+            />
+          )}
 
       {/* Subtle top ambient matte vignette */}
       <div className="fixed top-0 left-0 right-0 h-40 bg-gradient-to-b from-black/40 to-transparent pointer-events-none -z-10" />
@@ -351,9 +362,11 @@ export default function App() {
           </div>
         </div>
       </footer>
+    </div>
+  )}
 
-      {/* Admin Studio Modal - Accessed only via URL (/admin) */}
-      <AdminPanel
+  {/* Admin Studio Full Screen Page - Accessed via URL (/admin) */}
+  <AdminPanel
         isOpen={adminOpen}
         onClose={handleCloseAdmin}
         posts={posts}
@@ -379,6 +392,6 @@ export default function App() {
         onSend={sendFriendNote}
         friendName={theme.friendName}
       />
-    </div>
+    </>
   );
 }
