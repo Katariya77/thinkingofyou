@@ -87,22 +87,15 @@ export const Navbar: React.FC<NavbarProps> = ({
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
-          {/* Brand Logo & Title */}
+          {/* Brand Title */}
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => onSelectPage(visiblePages[0]?.id || 'page-home')}
               className="flex items-center gap-3 text-left group focus:outline-none"
             >
-              <div className="w-8 h-8 bg-white rounded-sm flex items-center justify-center shadow-sm shrink-0">
-                <span className="text-black font-bold text-xs uppercase">
-                  {(theme.siteTitle || 'M')[0]}
-                </span>
-              </div>
-              <div>
-                <span className="font-semibold tracking-widest text-sm uppercase text-white block group-hover:text-zinc-300 transition-colors">
-                  {theme.siteTitle || 'madxgaming'}
-                </span>
-              </div>
+              <span className="font-semibold tracking-widest text-sm uppercase text-white block group-hover:text-zinc-300 transition-colors">
+                {theme.siteTitle || 'madxgaming'}
+              </span>
             </button>
           </div>
 

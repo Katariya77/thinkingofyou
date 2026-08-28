@@ -336,9 +336,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {/* Full Screen Top Header */}
         <div className="px-6 py-4 border-b border-white/10 bg-[#0D0D0D] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3.5">
-            <div className="w-8 h-8 rounded-sm bg-white text-black font-bold flex items-center justify-center text-xs tracking-wider">
-              M
-            </div>
             <div>
               <h2 className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-white flex items-center gap-2">
                 <span>Admin Studio & Engine</span>

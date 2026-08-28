@@ -342,12 +342,7 @@ export default function App() {
       <footer className="w-full border-t border-white/10 bg-[#0F0F0F] py-6 transition-colors mt-auto">
         <div className="max-w-6xl mx-auto px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#666666]">
           <div className="flex items-center gap-2.5">
-            <div className="w-4 h-4 bg-white rounded-sm flex items-center justify-center text-black font-bold text-[9px]">
-              {(theme.siteTitle || 'M')[0]}
-            </div>
             <span className="text-[#E0E0E0] uppercase tracking-wider font-semibold">{theme.siteTitle}</span>
-            <span>•</span>
-            <span className="font-mono text-[11px]">Personal Archive</span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] uppercase tracking-wider">
