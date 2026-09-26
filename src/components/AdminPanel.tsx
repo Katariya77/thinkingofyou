@@ -42,6 +42,7 @@ import {
 import { Page, Post, ThemeConfig, FriendNote, PostType, ThemeMode, DividerStyle, TypographyFamily } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogsManager } from './LogsManager';
+import { ComingSoonManager } from './ComingSoonManager';
 import { 
   verifyAdminAuth, 
   updateAdminAuthInFirestore, 
@@ -106,7 +107,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [showResetDataModal, setShowResetDataModal] = useState(false);
 
   // Navigation tab
-  const [activeTab, setActiveTab] = useState<'create' | 'posts' | 'pages' | 'theme' | 'notes' | 'logs' | 'settings'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'posts' | 'pages' | 'theme' | 'comingSoon' | 'notes' | 'logs' | 'settings'>('create');
 
   // Load / seed admin credentials from Firebase on modal opening
   useEffect(() => {
@@ -571,6 +572,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <span>Theme Matrix</span>
                 </div>
                 {activeTab === 'theme' && <div className="w-1 h-3.5 bg-white shrink-0" />}
+              </button>
+
+              <button
+                onClick={() => setActiveTab('comingSoon')}
+                className={`flex items-center justify-between px-3 py-2 rounded-sm text-xs transition-colors shrink-0 text-left uppercase tracking-wider ${
+                  activeTab === 'comingSoon'
+                    ? 'bg-white/5 text-white border border-white/10 font-medium'
+                    : 'text-[#666666] hover:text-[#AAAAAA] hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Music className="w-3.5 h-3.5 text-zinc-300" />
+                  <span>Coming Soon & Lyrics</span>
+                </div>
+                {theme.comingSoon?.enabled ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                ) : (
+                  activeTab === 'comingSoon' && <div className="w-1 h-3.5 bg-white shrink-0" />
+                )}
               </button>
 
               <button
@@ -2042,6 +2062,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                               className="w-full px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none"
                             />
                           </div>
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('comingSoon')}
+                              className="w-full py-2 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+                            >
+                              <Music className="w-3.5 h-3.5" />
+                              <span>Open Full Coming Soon & Spotify Lyrics Studio →</span>
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2068,6 +2098,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </button>
                   </div>
                 </div>
+              )}
+
+              {/* TAB 5.5: COMING SOON & SPOTIFY LYRICS MANAGER */}
+              {activeTab === 'comingSoon' && (
+                <ComingSoonManager
+                  comingSoon={theme.comingSoon}
+                  onSave={(config) => onUpdateTheme({ comingSoon: config })}
+                  onViewNotes={() => setActiveTab('notes')}
+                  notesCount={notes.length}
+                />
               )}
 
               {/* TAB 6: TELEMETRY & VISITOR LOGS */}

@@ -25,9 +25,11 @@ export const DEFAULT_THEME: ThemeConfig = {
   friendName: 'My Friend',
   comingSoon: {
     enabled: false,
-    bgImageUrl: '',
-    songUrl: '',
-    songTitle: '',
+    bgImageUrl: 'https://images.unsplash.com/photo-1509114397022-ed747cca3f65?q=80&w=1600&auto=format&fit=crop',
+    songUrl: 'https://cdn.freesound.org/previews/518/518873_11504938-lq.mp3',
+    songTitle: 'Ambient Night Serenade',
+    songArtist: 'Curated for You',
+    lyricsText: '',
   },
 };
 

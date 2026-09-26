@@ -196,6 +196,12 @@ export default function App() {
           bgImageUrl={theme.comingSoon?.bgImageUrl}
           songUrl={theme.comingSoon?.songUrl}
           songTitle={theme.comingSoon?.songTitle}
+          songArtist={theme.comingSoon?.songArtist}
+          lyricsText={theme.comingSoon?.lyricsText}
+          lyrics={theme.comingSoon?.lyrics}
+          friendNotes={notes}
+          onSendNote={sendFriendNote}
+          friendName={theme.friendName}
         />
       ) : (
         <div

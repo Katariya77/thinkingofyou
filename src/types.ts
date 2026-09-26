@@ -59,6 +59,23 @@ export type ThemeMode = 'solid' | 'gradient' | 'image';
 export type DividerStyle = 'minimal' | 'solid' | 'dashed' | 'dotted' | 'subtle-glow';
 export type TypographyFamily = 'sans' | 'serif' | 'mono';
 
+export interface LyricLine {
+  id?: string;
+  time?: number; // in seconds, e.g. 12.5
+  formattedTime?: string; // e.g. "00:12.50"
+  text: string;
+}
+
+export interface ComingSoonConfig {
+  enabled: boolean;
+  bgImageUrl: string;
+  songUrl: string;
+  songTitle?: string;
+  songArtist?: string;
+  lyricsText?: string;
+  lyrics?: LyricLine[];
+}
+
 export interface ThemeConfig {
   mode: ThemeMode;
   solidHex: string;
@@ -82,12 +99,7 @@ export interface ThemeConfig {
   enableReactions: boolean;
   enableFriendNotes: boolean;
   friendName: string;
-  comingSoon?: {
-    enabled: boolean;
-    bgImageUrl: string;
-    songUrl: string;
-    songTitle?: string;
-  };
+  comingSoon?: ComingSoonConfig;
 }
 
 export interface FriendNote {
