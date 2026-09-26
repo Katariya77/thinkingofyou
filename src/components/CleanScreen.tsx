@@ -272,18 +272,7 @@ export const CleanScreen: React.FC<CleanScreenProps> = ({
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/80 pointer-events-none" />
 
         {/* Top Header */}
-        <div className="relative z-10 p-6 sm:p-8 flex items-center justify-between">
-          <div />
-
-          {songTitle && (
-            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 text-xs text-white/80">
-              <Music className="w-3.5 h-3.5 text-white/60 animate-spin" style={{ animationDuration: '8s' }} />
-              <span className="font-mono text-[11px] tracking-wider uppercase truncate max-w-[200px]">
-                {songTitle}
-              </span>
-            </div>
-          )}
-        </div>
+        <div className="relative z-10 p-6 sm:p-8" />
 
         {/* Bottom Bar: Sound Indicator & Scroll Down Cue */}
         <div className="relative z-10 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -477,7 +466,7 @@ export const CleanScreen: React.FC<CleanScreenProps> = ({
       </section>
 
       {/* Ultra Minimal Clean Footer */}
-      <footer className="w-full py-12 px-4 text-center text-xs font-mono text-zinc-600 border-t border-white/5 bg-[#050505] flex flex-col items-center justify-center gap-3">
+      <footer className="w-full py-12 px-4 text-center text-xs font-mono text-zinc-600 border-t border-white/5 bg-[#050505] flex flex-col items-center justify-center">
         <button
           onClick={() => setIsNotesOpen(true)}
           className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/10 text-xs transition-colors cursor-pointer"
@@ -485,7 +474,6 @@ export const CleanScreen: React.FC<CleanScreenProps> = ({
           <StickyNote className="w-3.5 h-3.5" />
           <span>{friendNotes.length > 0 ? `${friendNotes.length} Notes Left` : 'Leave a note'}</span>
         </button>
-        <span className="text-[11px] text-zinc-700">A quiet sanctuary</span>
       </footer>
 
       {/* ========================================================= */}
