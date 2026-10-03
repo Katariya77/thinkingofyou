@@ -21,6 +21,23 @@ const STORAGE_KEY_THEME = 'mm_matte_theme';
 const STORAGE_KEY_NOTES = 'mm_matte_notes';
 const STORAGE_KEY_INITIALIZED = 'mm_matte_initialized';
 
+export function cleanFirestoreData<T>(data: T): T {
+  if (data === null || data === undefined) return data;
+  if (Array.isArray(data)) {
+    return data.map((item) => cleanFirestoreData(item)) as unknown as T;
+  }
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data as Record<string, any>)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanFirestoreData(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return data;
+}
+
 export function useAppStore() {
   const [posts, setPosts] = useState<Post[]>(() => {
     try {
@@ -64,6 +81,13 @@ export function useAppStore() {
 
   const [isSyncing, setIsSyncing] = useState<boolean>(true);
   const [firestoreConnected, setFirestoreConnected] = useState<boolean>(false);
+  const [isThemeLoaded, setIsThemeLoaded] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY_THEME) !== null;
+    } catch {
+      return false;
+    }
+  });
 
   // Sync with Firestore: Posts
   useEffect(() => {
@@ -93,21 +117,38 @@ export function useAppStore() {
               const stateDoc = await getDoc(doc(db, 'settings', 'portal_state'));
               const isAlreadyInit = (stateDoc.exists() && stateDoc.data()?.initialized) || localStorage.getItem(STORAGE_KEY_INITIALIZED) === 'true';
 
-              if (isAlreadyInit) {
-                // User intentionally deleted all posts or has zero posts -> keep empty!
+              if (!isAlreadyInit) {
+                // First-time pristine setup only
+                await seedInitialData();
+              } else {
+                // If local storage has posts, preserve them by syncing to Firestore rather than wiping out
+                const saved = localStorage.getItem(STORAGE_KEY_POSTS);
+                if (saved) {
+                  try {
+                    const localPosts: Post[] = JSON.parse(saved);
+                    if (Array.isArray(localPosts) && localPosts.length > 0) {
+                      for (const lp of localPosts) {
+                        await setDoc(doc(db, 'posts', lp.id), cleanFirestoreData(lp), { merge: true });
+                      }
+                      setPosts(localPosts);
+                      setFirestoreConnected(true);
+                      setIsSyncing(false);
+                      return;
+                    }
+                  } catch {}
+                }
                 setPosts([]);
                 localStorage.setItem(STORAGE_KEY_POSTS, JSON.stringify([]));
                 setFirestoreConnected(true);
-              } else {
-                // First-time pristine setup only
-                await seedInitialData();
               }
             } catch (err) {
               console.warn('Check portal_state notice:', err);
-              // If error or already marked, don't respawn
               if (localStorage.getItem(STORAGE_KEY_INITIALIZED) === 'true') {
-                setPosts([]);
-                localStorage.setItem(STORAGE_KEY_POSTS, JSON.stringify([]));
+                const saved = localStorage.getItem(STORAGE_KEY_POSTS);
+                if (!saved) {
+                  setPosts([]);
+                  localStorage.setItem(STORAGE_KEY_POSTS, JSON.stringify([]));
+                }
               }
             }
             setIsSyncing(false);
@@ -168,13 +209,18 @@ export function useAppStore() {
             setTheme(remoteTheme);
             localStorage.setItem(STORAGE_KEY_THEME, JSON.stringify(remoteTheme));
           }
+          setIsThemeLoaded(true);
         },
-        (err) => console.warn('Theme sync error:', err)
+        (err) => {
+          console.warn('Theme sync error:', err);
+          setIsThemeLoaded(true);
+        }
       );
 
       return () => unsubscribe();
     } catch (e) {
       console.warn('Theme firestore fallback:', e);
+      setIsThemeLoaded(true);
     }
   }, []);
 
@@ -211,16 +257,16 @@ export function useAppStore() {
       
       DEFAULT_POSTS.forEach((p) => {
         const postRef = doc(db, 'posts', p.id);
-        batch.set(postRef, p);
+        batch.set(postRef, cleanFirestoreData(p));
       });
 
       DEFAULT_PAGES.forEach((pg) => {
         const pageRef = doc(db, 'pages', pg.id);
-        batch.set(pageRef, pg);
+        batch.set(pageRef, cleanFirestoreData(pg));
       });
 
       const themeRef = doc(db, 'settings', 'theme');
-      batch.set(themeRef, DEFAULT_THEME);
+      batch.set(themeRef, cleanFirestoreData(DEFAULT_THEME));
 
       const stateRef = doc(db, 'settings', 'portal_state');
       batch.set(stateRef, { initialized: true, seededAt: Date.now() });
@@ -252,13 +298,15 @@ export function useAppStore() {
       return updated;
     });
 
-    // 2. Persist to Firestore
+    // 2. Persist to Firestore with clean data
     try {
       const postRef = doc(db, 'posts', post.id);
-      await setDoc(postRef, post, { merge: true });
+      const cleaned = cleanFirestoreData(post);
+      await setDoc(postRef, cleaned, { merge: true });
       await setDoc(doc(db, 'settings', 'portal_state'), { initialized: true }, { merge: true });
+      setFirestoreConnected(true);
     } catch (e) {
-      console.warn('Could not persist post to firestore:', e);
+      console.error('Could not persist post to firestore:', e);
     }
   };
 
@@ -293,7 +341,7 @@ export function useAppStore() {
         };
         // Persist
         try {
-          setDoc(doc(db, 'posts', postId), newPost, { merge: true });
+          setDoc(doc(db, 'posts', postId), cleanFirestoreData(newPost), { merge: true });
         } catch {
           // ignore
         }
@@ -318,7 +366,7 @@ export function useAppStore() {
         const comments = [...(p.comments || []), newComment];
         const newPost = { ...p, comments };
         try {
-          setDoc(doc(db, 'posts', postId), newPost, { merge: true });
+          setDoc(doc(db, 'posts', postId), cleanFirestoreData(newPost), { merge: true });
         } catch {}
         return newPost;
       });
@@ -343,7 +391,7 @@ export function useAppStore() {
     });
 
     try {
-      await setDoc(doc(db, 'pages', page.id), page, { merge: true });
+      await setDoc(doc(db, 'pages', page.id), cleanFirestoreData(page), { merge: true });
     } catch (e) {
       console.warn('Could not persist page to firestore:', e);
     }
@@ -370,7 +418,7 @@ export function useAppStore() {
     localStorage.setItem(STORAGE_KEY_THEME, JSON.stringify(fullTheme));
 
     try {
-      await setDoc(doc(db, 'settings', 'theme'), fullTheme, { merge: true });
+      await setDoc(doc(db, 'settings', 'theme'), cleanFirestoreData(fullTheme), { merge: true });
     } catch (e) {
       console.warn('Could not persist theme to firestore:', e);
     }
@@ -380,7 +428,7 @@ export function useAppStore() {
     setTheme(DEFAULT_THEME);
     localStorage.setItem(STORAGE_KEY_THEME, JSON.stringify(DEFAULT_THEME));
     try {
-      await setDoc(doc(db, 'settings', 'theme'), DEFAULT_THEME);
+      await setDoc(doc(db, 'settings', 'theme'), cleanFirestoreData(DEFAULT_THEME));
     } catch (e) {
       console.warn('Could not reset theme in firestore:', e);
     }
@@ -403,7 +451,7 @@ export function useAppStore() {
     });
 
     try {
-      await setDoc(doc(db, 'friendNotes', note.id), note);
+      await setDoc(doc(db, 'friendNotes', note.id), cleanFirestoreData(note));
     } catch (e) {
       console.warn('Could not save note to firestore:', e);
     }
@@ -454,6 +502,7 @@ export function useAppStore() {
     theme,
     notes,
     isSyncing,
+    isThemeLoaded,
     firestoreConnected,
     savePost,
     removePost,

@@ -287,33 +287,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const newPost: Post = {
       id: editingPostId || 'post-' + Date.now(),
       type: postType,
-      title: postTitle.trim() || undefined,
       content: postContent.trim(),
       pageId: postPageId,
       author: postAuthor.trim() || 'Me',
-      mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
       pinned: postPinned,
       timestamp: isNaN(timestampToUse) ? Date.now() : timestampToUse,
       createdAt: editingPostId
         ? posts.find((p) => p.id === editingPostId)?.createdAt || Date.now()
         : Date.now(),
       likes: editingPostId ? posts.find((p) => p.id === editingPostId)?.likes || 0 : 0,
-      reactions: editingPostId ? posts.find((p) => p.id === editingPostId)?.reactions : {},
-      comments: editingPostId ? posts.find((p) => p.id === editingPostId)?.comments : [],
-      audioMetadata:
-        postType === 'audio'
-          ? {
-              trackTitle: audioTrackTitle || postTitle || 'Voice Note',
-              artist: audioArtist || 'Recorded for You',
+      reactions: editingPostId ? posts.find((p) => p.id === editingPostId)?.reactions || {} : {},
+      comments: editingPostId ? posts.find((p) => p.id === editingPostId)?.comments || [] : [],
+      ...(postTitle.trim() ? { title: postTitle.trim() } : {}),
+      ...(mediaUrls.length > 0 ? { mediaUrls } : {}),
+      ...(postType === 'audio'
+        ? {
+            audioMetadata: {
+              trackTitle: audioTrackTitle.trim() || postTitle.trim() || 'Voice Note',
+              artist: audioArtist.trim() || 'Recorded for You',
               voiceNote: !!recordedAudioUrl,
-            }
-          : undefined,
-      linkMetadata:
-        postType === 'quote'
-          ? {
-              quoteAuthor: quoteAuthor || undefined,
-            }
-          : undefined,
+            },
+          }
+        : {}),
+      ...(postType === 'quote' && quoteAuthor.trim()
+        ? {
+            linkMetadata: {
+              quoteAuthor: quoteAuthor.trim(),
+            },
+          }
+        : {}),
     };
 
     onSavePost(newPost);

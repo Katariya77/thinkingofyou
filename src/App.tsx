@@ -25,6 +25,7 @@ export default function App() {
     pages,
     theme,
     notes,
+    isThemeLoaded,
     firestoreConnected,
     savePost,
     removePost,
@@ -58,13 +59,20 @@ export default function App() {
   });
   const [friendNoteOpen, setFriendNoteOpen] = useState<boolean>(false);
 
-  // URL route listener for /admin
+  // URL route listener for /admin and page hash navigation (#slug)
   useEffect(() => {
     const handleUrlChange = () => {
       const path = window.location.pathname.replace(/\/+$/, '');
-      const hash = window.location.hash.toLowerCase();
-      if (path === '/admin' || hash === '#admin') {
+      const rawHash = window.location.hash.toLowerCase().replace(/^#/, '');
+      if (path === '/admin' || rawHash === 'admin') {
         setAdminOpen(true);
+        return;
+      }
+      if (rawHash && pages && pages.length > 0) {
+        const found = pages.find((p: any) => p.slug?.toLowerCase() === rawHash || p.id?.toLowerCase() === rawHash);
+        if (found) {
+          setActivePageId(found.id);
+        }
       }
     };
 
@@ -76,7 +84,7 @@ export default function App() {
       window.removeEventListener('popstate', handleUrlChange);
       window.removeEventListener('hashchange', handleUrlChange);
     };
-  }, []);
+  }, [pages]);
 
   // Automatic live visitor telemetry tracking
   useEffect(() => {
@@ -189,6 +197,17 @@ export default function App() {
 
   const isComingSoonActive = theme.comingSoon?.enabled;
 
+  if (!isThemeLoaded) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center gap-3">
+        <div className="w-5 h-5 rounded-full border border-white/20 border-t-white animate-spin" />
+        <span className="text-[10px] uppercase font-mono tracking-[0.25em] text-[#555555]">
+          Loading sanctuary...
+        </span>
+      </div>
+    );
+  }
+
   return (
     <>
       {isComingSoonActive ? (
@@ -230,6 +249,10 @@ export default function App() {
         activePageId={activePageId}
         onSelectPage={(id) => {
           setActivePageId(id);
+          const targetPage = pages.find((p: any) => p.id === id);
+          if (targetPage) {
+            window.location.hash = targetPage.isHome ? '' : targetPage.slug;
+          }
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         theme={theme}
